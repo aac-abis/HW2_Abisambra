@@ -1,0 +1,718 @@
+---
+title: "HW 2: Generalized Linear Models"
+subtitle: "Advanced Regression (STAT 353-0)"
+author: "Alejandro Abisambra"
+pagetitle: "HW 2 Abisambra"
+date: today
+
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    embed-resources: true
+    code-fold: false
+    link-external-newwindow: true
+    theme: cosmo
+
+execute:
+  warning: false
+
+from: markdown+emoji
+reference-location: margin
+citation-location: margin  
+---
+
+::: {.callout-tip icon=false}
+
+## Github Repo Link
+
+[https://github.com/aac-abis/HW2_Abisambra](https://github.com/aac-abis/HW2_Abisambra)
+
+:::
+
+```{r}
+#| warning: false
+#| include: false
+library(tidyverse)
+library(skimr)
+library(stargazer)
+library(effects)
+library(margins)
+library(nnet)
+library(car)
+```
+
+
+## Handwork
+
+Policy on handwork is that it is required for Statistics PhD students and MS in Statistics students. It is encouraged (but not required) for MS in Applied Statistics and all other students. If you are the latter, you will not get penalized if you get these wrong.
+
+Exercises are from the course textbook *Applied Regression Analysis & Generalized Linear Models, 3rd Edition (FOX)* --- 14.1, 14.3, 14.6, 15.2, and 15.4.
+
+You can type your answers directly into this document or you can do the work for each exercise on paper, take a picture of your solution, and include the image within this document (work must be legible). 
+
+Alternatively, you can do the Handwork exercises on paper and submit a scanned copy along with your html completing the Data Analysis exercises. That is, you will be submitting a pdf with your solution to the Handwork exercises and an html file with solutions to the Data Analysis exercises. Both documents should be well organized and in the case of the handwork, it must be legible.
+
+
+
+### Exercise 14.1
+
+::: {.callout-tip icon="false"}
+## Solution
+Ad-hoc Master Student. I will skip these for this HW.
+:::
+
+
+### Exercise 14.3
+
+::: {.callout-tip icon="false"}
+## Solution
+
+Ad-hoc Master Student. I will skip these for this HW.
+
+:::
+
+
+### Exercise 14.6
+
+::: {.callout-tip icon="false"}
+## Solution
+
+Ad-hoc Master Student. I will skip these for this HW.
+
+:::
+
+### Exercise 15.2
+
+::: {.callout-tip icon="false"}
+## Solution
+
+Ad-hoc Master Student. I will skip these for this HW.
+
+:::
+
+
+### Exercise 15.4
+
+::: {.callout-tip icon="false"}
+## Solution
+
+Ad-hoc Master Student. I will skip these for this HW.
+
+:::
+
+
+## Data analysis
+
+### First, a brief data overview
+```{r}
+#| include: false
+chile <- read.csv("data/chile.txt", header = TRUE, sep = "")
+```
+
+```{r}
+skim(chile)
+hist(chile$income, breaks = 100, freq = FALSE)
+```
+In general, the variables and their distributions look as what I would expect, with the exception of the Income variable. There are a lot of gaps in the income distribution, with big jumps in between levels. I expected the income distribution to look a bit more smooth, but I suspect this is the result of some grouping into bins or levels that the survey decided to do. I will work this the data as is. 
+
+
+### Exercise D14.1 (Dichotomous)
+
+For this question, we will use the `Chile.txt` dataset, which has a polytomous outcome: voting intention (yes, no, abstain, undecided). For this problem, focus only on the subset of the data with outcomes of either 'yes' or 'no'.
+
+(a) Formulate a model that makes substantive sense in the context of the data set - for example,constructing dummy regressors to represent factors and including interaction regressors where these are appropriate - and fit a linear logistic regression of the response variable on the explanatory variables, reporting the estimated regression coefficients and their asymptotic standard errors.
+
+::: {.callout-tip icon="false"}
+## Solution
+```{r}
+#| include: false
+# Setting Region, Sex, Education as factors
+chile$region <- as.factor(chile$region)
+
+chile$sex <- factor(chile$sex, levels = c("F", "M"))
+contrasts(chile$sex) <- contr.treatment(levels(chile$sex), 
+                                        base = 1)
+
+chile$education <- factor(chile$education, levels = c("P", "S", "PS"))
+contrasts(chile$education) <- contr.treatment(levels(chile$education), 
+                                              base = 1)
+
+chile$vote <- factor(chile$vote, levels = c("N", "Y"))
+
+# Now, limit the dataset to the vote Yes/No only
+chile_1 <- chile %>% filter(., vote == "Y" | vote == "N") %>% 
+  filter(if_all(everything(), ~ !is.na(.)))
+```
+
+After exploring 3 models with different combinations of covariates (as shown in the table below), I have decided to go with the 2nd model (m1b) that includes the whole range of covariates, but without any interactions. Upon testing the improvements provided by the interactions, using anova tables in section 14.1.b below, I discovered that the interaction terms were not significant (or only marginally so). In addition, the model with the interactions only brought a very minor improvement to the overall model, as shown by the almost identical AIC score between the models with and without interactions. 
+
+For the reasons above, on the grounds of parsimony, I will stick with Model 2 (m1b) that includes the whole range of covariates but without interactions. 
+
+```{r}
+m1a <- glm(vote ~ education + age + sex + income + population + region, 
+           family = binomial(link = "logit"), data = chile_1)
+
+m1b <- glm(vote ~ education + age + sex + income + population + 
+             region + statusquo, 
+           family = binomial(link = "logit"), data = chile_1)
+
+m1c <- glm(vote ~ education + age + age*sex + sex + income + education*income + population + 
+             region + statusquo, 
+           family = binomial(link = "logit"), data = chile_1)
+```
+
+
+```{r}
+#| include: false
+residual_deviance <- c(
+  deviance(m1a),
+  deviance(m1b),
+  deviance(m1c)
+)
+```
+
+```{r}
+stargazer(m1a, m1b, m1c, type = "text", add.lines = 
+            list(c("Residual Deviance", residual_deviance)))
+```
+
+:::
+
+(b) Construct an analysis-of-deviance table for the model fit in part (a).
+
+::: {.callout-tip icon="false"}
+## Solution
+
+```{r}
+anova(m1a, m1b, m1c)
+```
+
+From the ANOVA table above, we can see that the model with all the covariates, including status quo (Model 2 in the table), is significantly better than the model that drops status quo as a regressor (Model 1). The reduction in residual deviance is large between these two models, and therefore the chi-square p-value associated with the reduction is highly significant. 
+
+Including the interactions in the model (Model 3), on the other hand, only marginally reduces the deviance of the model and is only statistically significant at the p < 0.05 level. Furthermore, running a single-model Anova table on Model 3 (with interactions), reveals that the interactions themselves are not statistically significant or only marginally so. As a result, I will proceed with Model 2 in the table above, which corresponds to m1b in my code. 
+
+```{r}
+# anova(m1c)     # This command shows that the interaction terms are not
+                  # significant, or only marginally so. I omit printing it for
+                  # the sake of brevity.
+
+ anova(m1b)
+```
+
+Finally, a single-model Anova for m1b (my preferred specification), reveals that all of the covariates significantly reduce the deviance in the model. However, it also shows that support for the status quo is the covariate that improves the fit of the model by far, as reflected in the large drop in deviance by adding this regressor. The magnitude of this drop is huge when compared with the contributions of the other covariates.
+
+:::
+
+(c) Fit a final model to the data that includes the statistically significant effects. Construct an effect display for each high-order term in the model, if your model includes them. If the model is additive, (i) suggest two interpretations of each estimated coefficient; and (ii) construct likelihood-ratio-based 95- percent confidence intervals for the regression coefficients, comparing these with confidence intervals based on the Wald statistic.
+
+::: {.callout-tip icon="false"}
+## Solution
+
+Keeping only the statistically significant covariates from model m1b, results in the following model that is shown below. Important to note, this new model (m1d below), has the lowest AIC score of all the models I have ran so far, reflecting the best balance between reductions in deviance and parsimony (a.k.a. less covariates in the model).
+
+```{r}
+m1d <- glm(vote ~ education + sex + statusquo, 
+           family = binomial(link = "logit"), data = chile_1)
+stargazer(m1d, type = "text")
+```
+The coefficients in the table above correspond to the relationship between each covariate and the log-odds of the outcome (voting Yes). However, these coefficients are not easy to interpret in an intuitive manner. From them, we can only easily grasp the direction of the relationship (positive/negative) and its significance. 
+
+We see that higher education levels and being a man are negatively associated with the log-odds of voting Yes. In contrast (and surprisingly to me), higher levels of support for the status quo are associated with a higher likelihood (log-odds) of voting Yes in the plebiscite. 
+
+But again, these coefficients are not easy to interpret in this form, so I will present a visual display of the effects and a table of marginal effects.
+
+<br>
+**Effect Display**
+```{r fig.height=8, fig.width=12}
+plot(predictorEffects(m1d))
+```
+<br>
+**Average Marginal Effects**
+```{r}
+marg <- margins(m1d)
+summary(marg)
+```
+
+
+<br>
+**Interpretation of each coefficient**
+
+From the tables and plots above, we get the following interpretations of the relationships between the covariates and the outcome. These interpretations correspond to the Average Marginal Effect, which is the effect of a 1-unit change in the focal covariate on the probability of the outcome, holding all other covariates at their means. 
+
+| Covariate       | Interpretation                      |
+|-----------------|-------------------------------------|
+| Education PS    | Having Post-Secondary education (relative to only Primary), is associated with a decrease of 6.7pp in the probability of voting yes.      |
+| Education S     | Having Secondary education (relative to only Primary), is associated with a decrease of 4.2pp in the probability of voting yes.        |
+| Being a Man     | Male voters have a probability of voting yes that is 3.4pp lower than that of women voters         |
+| Status quo      | A 1-unit increase in the support of the status quo is associated with an increase of 18.5pp in the probability of voting yes.   |
+
+<br>
+**Confidence Intervals: LR CI vs Wald CI**
+<br>
+*LR Confidence Intervals*
+```{r}
+confint(m1d, level = 0.95, test = "LR")
+```
+*Wald Statistic Confidence Intervals*
+```{r}
+#| code-fold: true
+coef_estimates <- coef(m1d)
+std_errors <- sqrt(diag(vcov(m1d)))
+
+critical_value <- qnorm(0.975)
+
+low_wald_CI <- coef_estimates - critical_value * std_errors
+upper_wald_CI <- coef_estimates + critical_value * std_errors
+```
+
+```{r}
+#| echo: false
+# cat("Lower Bound Wald CI")
+# print(low_wald_CI)
+# cat("Upper Bound Wald CI")
+# print(upper_wald_CI)
+# 
+
+wald_conf_int <- data.frame(
+  Coefficient = coef_estimates,
+  Lower95CI = low_wald_CI,
+  Upper95CI = upper_wald_CI
+)
+
+print(wald_conf_int)
+```
+<br>
+As we can see from the two tables above, the CI using both methods are very similar but not identical. The underlying reason is related to the probability distributions that are used to compute the intervals in each case. The Wald CI relies on the z-statistic which comes from the normal distribution. On the other hand, the LR CI relies on chi-square distributions; which is also why the LR CI are not (necessarily) symmetrical. For example, in this case, the LR intervals are not symmetrical, even if the difference on each side is very small. 
+
+Importantly, both estimation methods will converge asymptotically for large/infinite samples. 
+
+:::
+
+(d) Fit a probit model to the data, comparing the results to those obtained with the logit model. Which do you think is better? Why?
+
+::: {.callout-tip icon="false"}
+## Solution
+
+```{r}
+m1d_probit <- glm(vote ~ education + sex + statusquo, 
+           family = binomial(link = "probit"), data = chile_1)
+```
+
+```{r}
+#| include: false
+residual_deviance <- c(
+  deviance(m1d_probit),
+  deviance(m1d))
+```
+
+```{r}
+stargazer(m1d_probit, m1d, type = "text", add.lines = 
+            list(c("Residual Deviance", residual_deviance)))
+```
+As we can see from the comparative table above, both the logit and probit model have very similar, nearly identical fit statistics. Their respective residual deviances and AIC scores are nearly identical. The significance of the individual coefficients is mirrored in both models as well. 
+
+This is to be expected, since the models are the same with the exception of the link function. The probit relies on the standard normal distribution as part of the link function. 
+
+Given that both models yield nearly identical results in terms of fit, I would prefer to use the logit model since it is much easier to construct easily interpretable statistics and inferences with this model than with the probit model. 
+
+:::
+
+
+### Exercise D14.2 (Polytomous outcome)
+
+Proceed as in Exercise D14.1, but now include all of the data and the four possible outcome values.
+
+Use, as appropriate, one or more of the following: a multinomial logit model; a proportional odds logit model; logit models fit to a set of nested dichotomies; or similar probit models. If you fit the proportional-odds model, test the assumption of parallel regressions. If you fit more than one kind of model, which model do you prefer and why? If you only fit one model, why? Make sure to explain the results and interpretations of the preferred model.
+
+::: {.callout-tip icon="false"}
+## Solution
+Given that our outcome of interest (voting decision in the plebiscite) is not naturally ordered, I have chosen to simply go with the multinomial logit model. The proportional odds and nested dichotomy alternatives are both models that fit ordered outcomes, but are not recommended for unordered/nominal categories with no inherent relationships between them. 
+
+This is the case of the four voting choices. There is no natural or obvious order between voting yes, voting no, abstaining, or being undecided. For this reason, I will only run the multinomial logit model.
+
+I will use the Vote Yes as the baseline category and compare the other 3 outcomes against this baseline.
+
+
+```{r}
+#| include: false
+
+# Import data again
+chile <- read.csv("data/chile.txt", header = TRUE, sep = "")
+
+# Setting vote as a polytomous factor w/ baseline Yes
+chile$vote <- factor(chile$vote, levels = c("Y", "N", "U", "A"))
+contrasts(chile$vote) <- contr.treatment(levels(chile$vote), 
+                                        base = 1)
+
+# Setting Region, Sex, Education as factors
+chile$region <- as.factor(chile$region)
+
+chile$sex <- factor(chile$sex, levels = c("F", "M"))
+contrasts(chile$sex) <- contr.treatment(levels(chile$sex), 
+                                        base = 1)
+
+chile$education <- factor(chile$education, levels = c("P", "S", "PS"))
+contrasts(chile$education) <- contr.treatment(levels(chile$education), 
+                                              base = 1)
+
+# Now, remove observations with NAs to run the model
+chile <- chile %>% filter(if_all(everything(), ~ !is.na(.)))
+
+```
+
+```{r, results = 'hide'}
+# m2a <- vglm(vote ~ statusquo, family = multinomial(refLevel = "Y"), 
+#             data = chile)
+# summary(m2a)
+
+# Using vglm yields same results as multinom from nnet, 
+# but the latter is more user friendly. So I use this one.
+m2a <- multinom(vote ~ statusquo, data = chile)
+
+m2b <- multinom(vote ~ education + age + sex + income + population + 
+             region , data = chile)
+
+m2c <- multinom(vote ~ education + age + sex + income + population + 
+             region + statusquo , data = chile)
+```
+
+```{r}
+#| include: false
+residual_deviance <- c(
+  deviance(m2a)," ", " ",
+  deviance(m2b)," ", " ",
+  deviance(m2c)
+)
+```
+
+```{r}
+stargazer(m2a, m2b, m2c, type = "text", add.lines = 
+            list(c("Residual Deviance", residual_deviance)))
+```
+
+
+The table above shows the results for 3 possible models to explain the data. These 3 models are analogous to the ones I tried for the dichotomous outcome in the previous question. 
+
+**Note that each 3-column group in the table corresponds to one model. m2a is the first 3 columns, m2b the next three columns, and so on.**
+
+The patterns of model fit found with the polytomous outcome are the same as the ones found for the dichotomous outcome. Among the three proposed model, the one with the best fit is the last one (m2c) which corresponds to including all the covariates, without any interactions. This model (m2c) is the one with the smallest residual deviance and the smallest AIC score (all the residual deviances are statistically significant, so it ultimately comes down to AIC which also accounts for over-fitting).
+
+Finally, not all covariates are statistically significant in my preferred model (m2c). So, following an analogous approach to the previous question, I will run a model only with the statistically significant covariates and interpret it. 
+
+```{r, results='hide'}
+m2d <- multinom(vote ~ education + age + sex + statusquo + region, data = chile)
+```
+
+```{r}
+stargazer(m2d, type ="text")
+```
+
+#### Interpretation of Coefficients
+To make the coefficients more easily interpretable, I am going to exponentiate them, so I have the effects in terms of odds instead of log-odds. 
+
+**Coefficients in Odds Scale (Exponentiated log-odds)**
+```{r}
+#| code-fold: true
+stargazer(m2d, coef = list(exp(coef(m2d))), type = "text")
+```
+
+The coefficients in the table above represent the change in the odds of the outcome, relative to voting yes, for a 1-unit change in the covariate of interest. If the coefficient in the table above is less than 1, then a 1-unit change in the covariate will reduce the odds of the outcome (relative to voting yes). If the coefficient is larger than 1, then a 1-unit change in the covariate will increase the odds of the outcome of interest. 
+
+Given the above, we can see that a 1-unit change in each of the following covariates has the following effect on the outcome of interest **(relative to voting yes)**:
+
+|**Covariate**            | **Voting No**          | **Being Undecided**        | **Abstaining**          |
+------------|------------|-----------------|------------|
+**Secondary Education (base primary) **| Increases odds by 58% | Decreases odds by 5.1% | Increases odds by 87% |
+**Post-Secondary (base primary)      **| Increase odds by 127% | Decreases odds by 47% | Increases odds by 51% |
+**Age (1-year increase)              **| Decrease odds by 1%   | Increase odds by 0.04% | Decrease odds by 2.1% |
+**Being Male (female base)           **| Increase odds by 112% | Decrease odds by 16%   | Increase odds by 6.9% |
+**Support StatusQuo (1-unit increase)**| Decrease odds by 97.6% | Decrease odds by 79% | Decrease odds by 85% |
+**Being in regionM                   **| Decrease odds by 39%  | Decrease odds by 26% | Decrease odds by 75%  |
+**Being in regionN                   **| Decrease odds by 39% | Decrease odds by 53% | Decrease odds by 11.5%  |
+**Being in regionS                   **| Decrease odds by 6.6% | Decrease odds by 27% | Decrease odds by 36%  |
+**Being in regionSA                  **| Decrease odds by 38% | Decrease odds by 12.5% | Decrease odds by 33%  |
+
+:::
+
+
+### Exercise D15.3 (GLM Diagnostics)
+
+Return to the logit (and probit) model that you fit in Exercise D14.1.
+
+(a) Use the diagnostic methods for generalized linear models described in this chapter to check the adequacy of the final model that you fit to the data.
+
+::: {.callout-tip icon="false"}
+## Solution
+
+**1. Deviance Test**
+```{r}
+cat("m1d Model Residual Deviance  ", m1d$deviance,
+    "\nm1d Model Residual Degrees of Freedom  ", m1d$df.residual,
+    "\nRight Tail Chi-Square P-value  ", pchisq(m1d$deviance, m1d$df.residual, lower.tail = F))
+```
+As we can see from the results above, a deviance test between our proposed model and a saturated model shows that the proposed model is not statistically significantly different from the saturated model. In other words, there is no evidence to suggest that the saturated model would perform significantly better than our proposed model. As a result, we prefer our proposed model on grounds of parsimony and usefulness. 
+
+**2. ANOVA Test, sequentially adding coefficients**
+```{r}
+anova(m1d)
+```
+Further more, an ANOVA test on the model shows that each of the terms significantly improves the model in terms of deviance reduction, which reassures us that we are not including covariates that are redundant or noisy from a deviance perspective.
+
+**3. Plot of Residuals**
+```{r}
+par(mfrow = c(1,2))
+#residuals.glm(m1d, type = "response")
+plot(residuals.glm(m1d, type = "response"))
+plot(m1d$residuals)
+par(mfrow = c(1,1))
+```
+Even though there are a few observations with large residuals, we can see that in general the residuals of the model hover around the 0 line and appear to be generally symmetric around it. In general, things are looking good. However, I will investigate the large-residual observations further through influence analysis next.
+
+**4. Influence Analysis**
+```{r fig.height=7, fig.width=7}
+influenceIndexPlot(m1d, vars = c("Cook", "hat"), id =list(n = 5))
+```
+As we can see, there are a few values with high scores in terms of Cook distance and hat-values. To check whether these values have undue influence on the model, I will re-run the model excluding these values and compare the results. 
+
+```{r}
+#| code-fold: true
+exclude <- c(85, 1000, 1172, 1560, 2488, 660, 807, 1065, 1729, 1862)
+
+chile_1a <- chile_1 %>%
+  rownames_to_column(var = "row_name") %>%  # Convert row names to a column
+  filter(!(row_name %in% exclude)) %>%      # Filter out rows in the exclude vector
+  column_to_rownames(var = "row_name")      # Convert the column back to row names
+
+m1da <- glm(vote ~ education + sex + statusquo, 
+           family = binomial(link = "logit"), data = chile_1a)
+
+residual_deviance <- c(
+  deviance(m1d),
+  deviance(m1da))
+
+stargazer(m1d, m1da, type = "text", add.lines = 
+            list(c("Residual Deviance", residual_deviance)))
+
+```
+As we can see from the table above, excluding the 10-observations that stand out in terms of influence (cook distance or hat-values) does improve the models fit in an important way. The residual deviance drops in model 2, as well as the AIC score. Furthermore, there are changes in the magnitudes of the relevant coefficients. On a positive note, however, excluding the influential points does not change the directionality of the coefficients or make them drop below significance level. 
+
+These diagnostics have confirmed that there are influential points in our data that should be looked into further before making any decisions (but I do not have the context knowledge or access to the survey to dig deeper). Reassuringly though, these datapoints only slightly change the magnitude of coefficients, but not the main takeaways from the model since the significance and directionality remains unchanged. 
+
+**5. Component Residual Plots: Non-linearity**
+```{r}
+crPlots(m1d, ~ statusquo)
+```
+As we can see from the plot above, the linearity between statusquo support and the log-odds of the outcome seems to hold pretty well in general. There ae a few extreme points on the high-values of the X axis that may have high influence on the model, but we checked for those in the previous step already and determined that in this case they are not a dealbreaker.
+
+:::
+
+
+(b) If the model contains a discrete quantitative explanatory variable (such as a binned variable), test for nonlinearity by specifying a model that treats this variable as a factor (e.g., using dummy regressors), and comparing that model via a likelihood-ratio test to the model that specifies that the variable has a linear effect. (If there is more than one discrete quantitative explanatory variable, then begin with a model that treats all of them as factors, contrasting this with a sequence of models that specifies a linear effect for each such variable in turn.) Note that this is analogous to the approach for testing for nonlinearity in a linear model with discrete explanatory variables described in Section 12.4.1.
+
+::: {.callout-tip icon="false"}
+## Solution
+
+My preferred specification only contains 3 covariates: status-quo support (coded as a continuous variable), sex (coded as a 2-factor), and education(coded as a 3-factor). In this context, the only covariate that could be thought as a potentially discrete variable would be education, which could be coded as years of education instead of a 3-level factor. 
+
+However, my preferred specification already includes this covariate as a factor. It does not include it as a discrete quantitative variable. 
+
+For the sake of the exercise, I am going to do the opposite process: recode the education factor variable into a discrete quantitative one. For this I will assume Primary = 7 Years of Education ; Secondary = 14 Years of Education ; Post-Secondary = 19 Years of Education.
+
+```{r}
+chile_1 <- chile_1 %>% mutate(educ_discrete = case_when(
+                          education == "P" ~ 7,
+                          education == "S" ~ 14,
+                          education == "PS" ~ 19
+                        ))
+
+m1d_discrete <- glm(vote ~ educ_discrete + sex + statusquo, 
+                    family = binomial(link = "logit"), 
+                    data = chile_1)
+
+anova(m1d_discrete, m1d)
+```
+As we can see from the comparative deviance table above, modelling education as a factor (original model) as opposed to as a discrete variable only marginally reduces the deviance of the model (which reflects an increase in fit). The education-as-factor model, however, only reduces the deviance by 0.028 points, which is very much **not* statistically significant. 
+In this case, then, we would conclude that education could be modelled linearly using discrete yearly increments. However, in this precise case the results may also just be an artifact of the discrete variable only having 3 possible values (7yrs, 14yrs, 19yrs) which very much closely map into the 3-level factor specification. 
+:::
+
+
+(c) Explore the use of the Cauchy and complementary-log-log links as alternatives to the logit link for this regression. Comparing deviances under the different links, which link appears to best represent the data?
+
+::: {.callout-tip icon="false"}
+## Solution
+
+```{r}
+#| code-fold: true
+m1d_cauchy <- glm(vote ~ education + sex + statusquo, 
+                  family = binomial(link = "cauchit"), 
+                  data = chile_1)
+
+m1d_cloglog <- glm(vote ~ education + sex + statusquo, 
+                  family = binomial(link = "cloglog"), 
+                  data = chile_1)
+
+residual_deviance <- c(deviance(m1d),deviance(m1d_cauchy), 
+                       deviance(m1d_cloglog), deviance(m1d_probit))
+
+stargazer(m1d, m1d_cauchy, m1d_cloglog, m1d_probit, type = "text", add.lines = 
+            list(c("Residual Deviance", residual_deviance)))
+
+```
+
+From the table above we can see that the logit model is the one that has the smallest residual deviance and the smallest AIC score. The logit model is the link function that provides the best fit among the alternatives. 
+
+Probit follows very closely, almost identical fit to the logit. 
+
+Finally, the cauchy link has a drop in fit, and the clog-log specification comes last among the alternatives.
+
+:::
+
+
+### Exercise D15.1 (Count data)
+
+Long (1990, 1997) investigates factors affecting the research productivity of doctoral students in biochemistry. Long's data (on 915 biochemists) are in the file `Long.txt`. The response variable in this investigation, `art`, is the number of articles published by the student during the last three years of his or her PhD programme. Overview of the explanatory variables are provided in @tbl-long-ex-vars below.
+
+| Variable name   | Definition                                                     |
+|:----------------|:---------------------------------------------------------------|
+| `fem`           | Gender: dummy variable - 1 if female, 0 if male                |
+| `mar`           | Maritial status: dummy variable - 1 if married, 0 if not       |
+| `kid5`          | Number of children five years old or younger                   |
+| `phd`           | Prestige rating of PhD department                              |
+| `ment`          | Number of articles published by mentor during last three years |
+
+: Explanatory variables in `long.txt` data {#tbl-long-ex-vars}
+
+```{r results='hide'}
+long <- read.csv("data/long.txt", header = TRUE, sep = "" )
+skim(long)
+```
+
+
+(a) Examine the distribution of the response variable. Based on this distribution, does it appear promising to model these data by linear least-squares regression, perhaps after transforming the response? Explain your answer.
+
+::: {.callout-tip icon="false"}
+## Solution
+```{r}
+par(mfrow = c(1,2))
+with(long, hist(art, freq = FALSE))
+with(long, hist(log(art), freq = FALSE))
+```
+No, the distribution of the response variable (art) suggests that it would **not** be appropriate to use a linear least-squares regression to model these data. The response variable is highly skewed, and even applying a log-transformation to it does not significantly center the distribution. In general, highly skewed response variables may result in violations of the normality of errors in an OLS model. As a result, other glm models are potentially more appropriate, and particularly a Poisson glm.  
+:::
+
+
+(b) Following Long, perform a Poisson regression of art on the explanatory variables. What do you conclude from the results of this regression? Be sure to interpret the results.
+
+::: {.callout-tip icon="false"}
+## Solution
+```{r}
+#| include: false
+
+long$fem <- factor(long$fem)
+long$mar <- factor(long$mar)
+```
+
+```{r}
+m3a <- glm(art ~ fem + ment + phd + kid5 + mar, 
+           family = poisson(link = "log"), data = long)
+S(m3a)
+```
+From the table above (particularly the exponentiated coefficients at the bottom), we can see that all covariates except PhD prestige are statistically significant. All the rest of the coefficients are significant below p<0.01 level, except for marriage which is only significant at the p<0.05 level. 
+
+For Poisson GLM with log link function, the coefficients have multiplicative effect. Thus, from the exponentiated coefficients table, holding all other values constant, we get the following interpretations: 
+
+* Female PhD students publish, on average, 20.1% less papers than their male counterparts. 
+* An increase of 1-paper published by the PhD's mentor is associated with a 2% increase, on average, of published papers by the student. 
+* A 1-unit increase in PhD program prestige is associated with a 1.2% increase on the published papers of the student. However, this coefficient is not statistically significant. 
+* In terms of parenting, each additional kid under-5 years old is associated with a 17% decrease in the number of published papers by the PhD student. 
+* Finally, married PhD students publish, on average, 16% more papers than their single counterparts, holding everything else constant. 
+
+:::
+
+
+(c) Perform regression diagnostics on the model fit in the previous question. If you identify any problems, try to deal with them. Are the conclusions of the research altered?
+
+::: {.callout-tip icon="false"}
+## Solution
+**Deviance test (w.r.t. to saturated model)**
+```{r}
+cat("m3a Model Residual Deviance  ", m3a$deviance,
+    "\nm3a Model Residual Degrees of Freedom  ", m3a$df.residual,
+    "\nRight Tail Chi-Square P-value  ", pchisq(m3a$deviance, 
+                                                m3a$df.residual, 
+                                                lower.tail = F))
+```
+The p-value from the Chi-Square deviance test with respect to the saturated model is very small (p<0.001). As such, we **reject** the null hypothesis under which the proposed model offers similar fit to the saturated model. Instead, we have to adopt the alternative hypothesis: the model has poor fit and underperforms relative to the saturated model.
+
+This might be the consequence of over or under-dispersion, meaning that the response variable is not adequately modeled by a Poisson distribution that has mean and variance that are equal.
+
+```{r fig.height=8, fig.width=10}
+#| code-fold: true
+par(mfrow = c(2,2))
+
+resid.m3a <- residuals(m3a, type = "deviance")
+
+plot(m3a$residuals)
+abline(h = 0, col = "red", lwd = 2)
+
+plot(resid.m3a)
+abline(h = 0, col = "red", lwd = 2)
+
+qqnorm(resid.m3a)
+qqline(resid.m3a, col = "red", lwd = 2)
+
+plot(m3a$fitted.values, resid.m3a,  
+     xlab = "Fitted Values",
+     ylab = "Deviance Residuals")
+abline(h = 0, col = "red", lwd = 2)
+```
+The residual plots above seem to confirm the possibility of issues with the dispersion parameter. The residuals are not centered around 0. They also seem to have problems of fit with the theoretical distribution, particularly for the low-quantiles. 
+
+From the above, it seems that a model that allows for a dispersion parameter $\neq 1$ **might** be better suited. I will try it in the next section.
+:::
+
+
+(d) Refit Long's model allowing for overdispersion (using a quasi-Poisson or negative-binomial model). Does this make a difference to the results?
+
+::: {.callout-tip icon="false"}
+## Solution
+```{r}
+m3b <- glm(art ~ fem + ment + phd + kid5 + mar, 
+           family = quasipoisson(link = "log"), data = long)
+S(m3b)
+```
+
+**Changes with respect to the Poisson Model**
+As we can see from the table above, the quasi-poisson model did result in a larger dispersion parameter. The dispersion is now estimated to be 1.83, whereas the Poisson model sets dispersion = 1.
+
+However, allowing for over-dispersion **did not** meaningfully change the model. In terms of the coefficients and their statistical significance, the results are largely the same; without any meaningful changes. Furthermore, in terms of goodness of fit, the model yields the same deviance with the same degrees of freedom. Thus, it still results in a model that reflects poor fit with respect to a saturated model. 
+
+(Note: I am aware that this is a quasi-likelihood, and thus its not exactly deviance that we are talking about, but these results can still be interpreted in the same way generally and be approximated by a chi-square distribution as the ones in the Poisson deviance analysis.)
+
+The lack of improvement of the model can be confirmed in the deviance plots below, which show the same patterns as the ones under the Poisson model.
+```{r fig.height=8, fig.width=10}
+#| code-fold: true
+
+par(mfrow = c(2,2))
+
+resid.m3b <- residuals(m3b, type = "deviance")
+
+plot(m3b$residuals)
+abline(h = 0, col = "red", lwd = 2)
+
+plot(resid.m3b)
+abline(h = 0, col = "red", lwd = 2)
+
+qqnorm(resid.m3b)
+qqline(resid.m3b, col = "red", lwd = 2)
+
+plot(m3b$fitted.values, resid.m3b,  
+     xlab = "Fitted Values",
+     ylab = "Deviance Residuals")
+abline(h = 0, col = "red", lwd = 2)
+```
+
+:::
+
